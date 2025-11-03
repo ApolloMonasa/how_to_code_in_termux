@@ -13,7 +13,7 @@ let g:loaded_ruby_provider = 0
 let g:loaded_perl_provider = 0
 " 注意: g:loaded_node_provider 通常不应禁用，因为 COC.nvim 依赖 Node.js。
 " 如果禁用，coc.nvim 及其一些扩展可能会无法工作。
-" let g:loaded_node_provider = 0 
+" 已删除 'let g:loaded_node_provider = 0' 以避免冲突
 
 " --- Plugin Manager: vim-plug ---
 call plug#begin('~/.config/nvim/plugged')

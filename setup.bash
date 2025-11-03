@@ -2,7 +2,7 @@
 
 # ======================================================================
 # Termux C/C++/Python 开发环境一键配置脚本
-# 版本: 1.5 (优先使用 Gitee 仓库下载配置文件)
+# 版本: 1.6 (优化插件安装和错误处理)
 # 作者: ApolloMonasa
 # 日期: 2024-01-26
 # 描述: 此脚本自动化配置 Termux 中的 C/C++/Python 开发环境，
@@ -20,8 +20,8 @@ echo "======================================================================"
 # --- 配置文件的远程 URL (优先使用 Gitee) ---
 # !!! 请确保这些 URL 指向你的 Gitee 仓库中文件的 Raw 内容 !!!
 # Gitee 的 Raw 内容链接通常格式为: https://gitee.com/用户名/仓库名/raw/分支名/文件路径
-INIT_VIM_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/master/init.vim"
-PIP_CONF_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/master/pip.conf" # 假设 pip.conf 也在此仓库
+INIT_VIM_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/init.vim"
+PIP_CONF_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/pip.conf" # 假设 pip.conf 也在此仓库
 
 # Fallback 到 GitHub (如果 Gitee 访问失败)
 INIT_VIM_URL_GITHUB="https://raw.githubusercontent.com/ApolloMonasa/how_to_code_in_termux/main/init.vim"
@@ -161,14 +161,20 @@ if [ $? -ne 0 ]; then
 fi
 echo "vim-plug 安装成功。"
 
-echo "正在安装 Neovim 插件... 这可能需要一些时间，请耐心等待。"
-# 在静默模式下运行 nvim 来安装插件
-nvim --headless +PlugInstall +qall
-
+# --- 关键调整在这里 ---
+echo "正在安装 Neovim 插件... 这可能需要一些时间，请耐心等待。请勿关闭终端或强制退出。"
+# 使用 vim-plug 的 `Install` 命令，它会下载并安装所有插件
+nvim --headless +PlugInstall +UpdateRemotePlugins +qall
+# 添加了 UpdateRemotePlugins 确保 provider 也被正确安装
+# 这里的返回值检查可能无法完全捕获插件安装失败，但至少确保 nvim 命令本身成功
 if [ $? -ne 0 ]; then
-    echo "警告: 部分 Neovim 插件可能未能正确安装。请手动进入 Neovim 并运行 ':PlugInstall' 检查。"
+    echo "警告: Neovim 插件安装过程可能存在问题。建议手动进入 Neovim，运行 ':PlugInstall' 和 ':checkhealth' 检查。"
 fi
-echo "Neovim 插件安装已启动。部分插件（如 coc.nvim 和 treesitter）需要进一步设置。"
+# 给予 Neovim 足够的时间完成所有后台任务，特别是大型插件的编译或设置
+echo "插件安装命令已发送。等待 10 秒，确保所有后台任务完成..."
+sleep 10 # 增加等待时间，可以根据网络和设备性能调整
+echo "Neovim 插件安装命令已执行。下一步将安装 COC.nvim 扩展。"
+
 
 # --- 4. Neovim 插件安装后的步骤 ---
 echo ""
