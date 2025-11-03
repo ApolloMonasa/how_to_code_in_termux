@@ -2,7 +2,7 @@
 
 # ======================================================================
 # Termux C/C++/Python 开发环境一键配置脚本
-# 版本: 1.1
+# 版本: 1.2
 # 作者: ApolloMonasa (或保留为空)
 # 日期: 2023-10-27
 # 描述: 此脚本自动化配置 Termux 中的 C/C++/Python 开发环境，
@@ -23,28 +23,30 @@ pkg update -y
 pkg upgrade -y
 
 # 尝试安装 nodejs 和 npm
-# 有些Termux版本或设置可能需要额外的步骤来安装nodejs/npm
-echo "尝试安装 nodejs 和 npm..."
-pkg install -y nodejs npm
+echo "尝试安装 Node.js 和 npm..."
 
-# 检查 npm 是否安装成功
-if ! command -v npm &> /dev/null
+# 优先尝试安装 nodejs-lts，它通常包含了 npm
+pkg install -y nodejs-lts
+
+# 检查 nodejs 是否安装成功
+if ! command -v node &> /dev/null
 then
-    echo "警告: npm 未能通过 pkg install 成功安装，尝试其他方法。"
-    echo "请确保您的Termux已启用所有必要的仓库或尝试手动安装 nodejs/npm。"
-    echo "COC.nvim需要Node.js和npm来安装其语言服务器扩展。"
-    # 如果仍然无法安装 npm，可以考虑在此处添加提示手动安装或退出
-    # 或者如果知道特定架构或仓库需要什么命令，可以在此添加
-    # For example:
-    # pkg install -y unstable-repo # Enable unstable repo
-    # pkg install -y nodejs-lts    # Install LTS version of nodejs
-    echo "如果您遇到 'npm' 相关的错误，请尝试以下命令手动安装 Node.js/npm 后再次运行此脚本："
-    echo "  pkg install -y nodejs npm"
-    echo "如果仍然失败，请尝试切换到默认源后重试，或检查您的Termux版本。"
-    exit 1 # 如果npm是关键依赖，直接退出
+    echo "警告: nodejs-lts 未能通过 pkg install 成功安装。尝试安装普通的 nodejs 和 npm..."
+    pkg install -y nodejs npm
+    # 再次检查 node 是否安装成功
+    if ! command -v node &> /dev/null
+    then
+        echo "错误: Node.js (和 npm) 无法安装。这可能是由于软件包源问题或Termux版本不兼容。"
+        echo "请尝试以下操作："
+        echo "  1. 运行 'termux-change-repo' 切换到默认源或尝试其他源。"
+        echo "  2. 确保您的 Termux 应用是最新版本。"
+        echo "  3. 手动尝试 'pkg install -y nodejs-lts' 或 'pkg install -y nodejs npm'"
+        echo "如果问题持续存在，COC.nvim 将无法正常工作。退出脚本。"
+        exit 1 # 如果Node.js是关键依赖，直接退出
+    fi
 fi
 
-echo "nodejs 和 npm 已安装或已存在。"
+echo "Node.js 和 npm 已安装或已存在。"
 
 # 安装其余的基础开发工具
 echo "安装 C/C++/Python 开发所需的基础工具..."
@@ -98,7 +100,7 @@ let g:python_host_prog = '/data/data/com.termux/files/usr/bin/python'
 " 如果不需要 Ruby 或 Perl 开发，可以禁用这些 provider
 let g:loaded_ruby_provider = 0
 let g:loaded_perl_provider = 0
-" let g:loaded_node_provider = 0 " Node.js provider在coc.nvim中使用，这里不应禁用，而是安装npm包
+" Node.js provider在coc.nvim中使用，这里不应禁用，而是安装npm包
 
 " --- Plugin Manager: vim-plug ---
 call plug#begin('~/.config/nvim/plugged')
