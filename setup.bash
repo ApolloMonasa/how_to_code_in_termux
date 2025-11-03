@@ -20,8 +20,8 @@ echo "======================================================================"
 # --- 配置文件的远程 URL (优先使用 Gitee) ---
 # !!! 请确保这些 URL 指向你的 Gitee 仓库中文件的 Raw 内容 !!!
 # Gitee 的 Raw 内容链接通常格式为: https://gitee.com/用户名/仓库名/raw/分支名/文件路径
-INIT_VIM_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/init.vim"
-PIP_CONF_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/pip.conf" # 假设 pip.conf 也在此仓库
+INIT_VIM_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/master/init.vim"
+PIP_CONF_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/master/pip.conf"
 
 # Fallback 到 GitHub (如果 Gitee 访问失败)
 INIT_VIM_URL_GITHUB="https://raw.githubusercontent.com/ApolloMonasa/how_to_code_in_termux/main/init.vim"
