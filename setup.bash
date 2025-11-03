@@ -1,62 +1,88 @@
 #!/bin/bash
 
 # ======================================================================
-# Termux C/C++/Python Development Environment Setup Script
-# Version: 1.0
-# Author: Your Name (或保留为空)
-# Date: 2023-10-27
-# Description: This script automates the setup of C/C++/Python
-#              development environment in Termux, including Neovim
-#              with COC.nvim, Treesitter, and UltiSnips.
+# Termux C/C++/Python 开发环境一键配置脚本
+# 版本: 1.1
+# 作者: ApolloMonasa (或保留为空)
+# 日期: 2023-10-27
+# 描述: 此脚本自动化配置 Termux 中的 C/C++/Python 开发环境，
+#       包括 Neovim、COC.nvim、Treesitter 和 UltiSnips。
 # ======================================================================
 
 echo "======================================================================"
-echo " Starting Termux Development Environment Setup"
-echo " This script will install necessary packages and configure Neovim."
-echo " Please ensure you have a stable internet connection."
+echo " 正在启动 Termux 开发环境配置..."
+echo " 此脚本将安装必要的软件包并配置 Neovim。"
+echo " 请确保您有稳定的互联网连接。"
 echo "======================================================================"
 
-# --- 1. System Update and Essential Packages ---
+# --- 1. 更新 Termux 并安装基础软件包 ---
 echo ""
-echo "--- Step 1: Updating Termux and installing essential packages ---"
+echo "--- 步骤 1: 更新 Termux 并安装基础软件包 ---"
+# 确保包管理器是最新的
 pkg update -y
 pkg upgrade -y
-pkg install -y build-essential clang python python-pip git neovim nodejs npm
+
+# 尝试安装 nodejs 和 npm
+# 有些Termux版本或设置可能需要额外的步骤来安装nodejs/npm
+echo "尝试安装 nodejs 和 npm..."
+pkg install -y nodejs npm
+
+# 检查 npm 是否安装成功
+if ! command -v npm &> /dev/null
+then
+    echo "警告: npm 未能通过 pkg install 成功安装，尝试其他方法。"
+    echo "请确保您的Termux已启用所有必要的仓库或尝试手动安装 nodejs/npm。"
+    echo "COC.nvim需要Node.js和npm来安装其语言服务器扩展。"
+    # 如果仍然无法安装 npm，可以考虑在此处添加提示手动安装或退出
+    # 或者如果知道特定架构或仓库需要什么命令，可以在此添加
+    # For example:
+    # pkg install -y unstable-repo # Enable unstable repo
+    # pkg install -y nodejs-lts    # Install LTS version of nodejs
+    echo "如果您遇到 'npm' 相关的错误，请尝试以下命令手动安装 Node.js/npm 后再次运行此脚本："
+    echo "  pkg install -y nodejs npm"
+    echo "如果仍然失败，请尝试切换到默认源后重试，或检查您的Termux版本。"
+    exit 1 # 如果npm是关键依赖，直接退出
+fi
+
+echo "nodejs 和 npm 已安装或已存在。"
+
+# 安装其余的基础开发工具
+echo "安装 C/C++/Python 开发所需的基础工具..."
+pkg install -y build-essential clang python python-pip git neovim
 # build-essential for common build tools like make, gcc (already included with clang on Termux)
 # clang for C/C++ compiler
 # python/python-pip for Python development
 # git for cloning repositories
 # neovim as the editor
-# nodejs/npm for coc.nvim extensions
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to install essential packages. Exiting."
+    echo "错误: 基础软件包安装失败。退出脚本。"
     exit 1
 fi
-echo "Essential packages installed successfully."
+echo "基础软件包安装成功。"
 
-# --- 2. Install Python Development Tools ---
+# --- 2. 安装 Python 开发工具 ---
 echo ""
-echo "--- Step 2: Installing Python development tools (pip packages) ---"
+echo "--- 步骤 2: 安装 Python 开发工具 (pip 包) ---"
 pip install --upgrade pip
 pip install pynvim # Neovim Python host provider
 pip install python-lsp-server # Python Language Server for COC.nvim (pylsp)
-pip install black flake8 isort # Common Python formatters/linters
+pip install black flake8 isort # 常用 Python 格式化/Linter 工具
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to install Python pip packages. Exiting."
+    echo "错误: Python pip 包安装失败。退出脚本。"
     exit 1
 fi
-echo "Python development tools installed successfully."
+echo "Python 开发工具安装成功。"
 
-# --- 3. Configure Neovim ---
+# --- 3. 配置 Neovim ---
 echo ""
-echo "--- Step 3: Configuring Neovim ---"
+echo "--- 步骤 3: 配置 Neovim ---"
 
-# Create Neovim configuration directory
+# 创建 Neovim 配置目录
 mkdir -p ~/.config/nvim
 
-# Create init.vim file and populate with the provided configuration
+# 将 Neovim 配置内容写入 init.vim 文件
 NVIM_CONFIG_FILE="$HOME/.config/nvim/init.vim"
 cat << EOF > "$NVIM_CONFIG_FILE"
 " ======================================================================
@@ -72,7 +98,7 @@ let g:python_host_prog = '/data/data/com.termux/files/usr/bin/python'
 " 如果不需要 Ruby 或 Perl 开发，可以禁用这些 provider
 let g:loaded_ruby_provider = 0
 let g:loaded_perl_provider = 0
-let g:loaded_node_provider = 0 " Node.js provider在coc.nvim中使用，这里不应禁用，而是安装npm包
+" let g:loaded_node_provider = 0 " Node.js provider在coc.nvim中使用，这里不应禁用，而是安装npm包
 
 " --- Plugin Manager: vim-plug ---
 call plug#begin('~/.config/nvim/plugged')
@@ -252,65 +278,62 @@ let mapleader = " "
 EOF
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to create Neovim configuration file. Exiting."
+    echo "错误: Neovim 配置文件创建失败。退出脚本。"
     exit 1
 fi
-echo "Neovim configuration file created at $NVIM_CONFIG_FILE"
-echo "Installing vim-plug..."
+echo "Neovim 配置文件已创建在 $NVIM_CONFIG_FILE"
+echo "正在安装 vim-plug..."
 
-# Install vim-plug (Neovim plugin manager)
+# 安装 vim-plug (Neovim 插件管理器)
 curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
 if [ $? -ne 0 ]; then
-    echo "Error: Failed to install vim-plug. Exiting."
+    echo "错误: vim-plug 安装失败。退出脚本。"
     exit 1
 fi
-echo "vim-plug installed successfully."
+echo "vim-plug 安装成功。"
 
-echo "Installing Neovim plugins... This may take some time."
-# Run nvim in silent mode to install plugins
+echo "正在安装 Neovim 插件... 这可能需要一些时间。"
+# 在静默模式下运行 nvim 来安装插件
 nvim --headless +PlugInstall +qall
 
 if [ $? -ne 0 ]; then
-    echo "Warning: Some Neovim plugins might not have installed correctly. Please check manually."
+    echo "警告: 部分 Neovim 插件可能未能正确安装。请手动检查。"
 fi
-echo "Neovim plugins installation initiated. Some plugins like coc.nvim and treesitter require further setup."
+echo "Neovim 插件安装已启动。部分插件（如 coc.nvim 和 treesitter）需要进一步设置。"
 
-# --- 4. Post-Neovim Plugin Installation Steps ---
+# --- 4. Neovim 插件安装后的步骤 ---
 echo ""
-echo "--- Step 4: Post-Neovim Plugin Installation Steps ---"
+echo "--- 步骤 4: Neovim 插件安装后的步骤 ---"
 
-# Install COC.nvim extensions
-echo "Installing COC.nvim extensions (coc-clangd, coc-pyright, etc.)..."
+# 安装 COC.nvim 扩展
+echo "正在安装 COC.nvim 扩展 (coc-clangd, coc-pyright, etc.)..."
 nvim --headless +":CocInstall coc-clangd coc-pyright coc-json coc-tsserver" +qall
 
 if [ $? -ne 0 ]; then
-    echo "Warning: Some COC.nvim extensions might not have installed correctly. Please check manually."
+    echo "警告: 部分 COC.nvim 扩展可能未能正确安装。请手动检查。"
 fi
-echo "COC.nvim extensions installation initiated."
+echo "COC.nvim 扩展安装已启动。"
 
-# Update Treesitter parsers (ensure C, C++, Python are installed)
-echo "Updating nvim-treesitter parsers..."
+# 更新 Treesitter 解析器 (确保 C, C++, Python 已安装)
+echo "正在更新 nvim-treesitter 解析器..."
 nvim --headless +":TSUpdate" +qall
 
 if [ $? -ne 0 ]; then
-    echo "Warning: nvim-treesitter parsers might not have updated correctly. Please check manually."
+    echo "警告: nvim-treesitter 解析器可能未能正确更新。请手动检查。"
 fi
-echo "nvim-treesitter parsers update initiated."
+echo "nvim-treesitter 解析器更新已启动。"
 
 
 echo ""
 echo "======================================================================"
-echo " Termux Development Environment Setup Complete!"
+echo " Termux 开发环境配置完成!"
 echo "======================================================================"
-echo " You can now open Neovim by typing 'nvim' in your Termux terminal."
-echo " Recommended next steps:"
-echo " 1. Run ':checkhealth' in Neovim to verify setup."
-echo " 2. For Python: Try to create a Python file (.py) and test autocompletion."
-echo " 3. For C/C++: Try to create a C/C++ file (.c/.cpp) and test autocompletion."
-echo " Enjoy your new Termux development environment!"
+echo " 您现在可以在 Termux 终端中输入 'nvim' 来打开 Neovim。"
+echo " 推荐的下一步操作:"
+echo " 1. 在 Neovim 中运行 ':checkhealth' 来验证设置。"
+echo " 2. 对于 Python: 创建一个 Python 文件 (.py) 并测试自动补全。"
+echo " 3. 对于 C/C++: 创建一个 C/C++ 文件 (.c/.cpp) 并测试自动补全。"
+echo " 祝您使用新的 Termux 开发环境愉快!"
 echo "======================================================================"
-
-# You can add an image here if you want to show a completion message visually
-#
