@@ -2,11 +2,13 @@
 
 # ======================================================================
 # Termux C/C++/Python 开发环境一键配置脚本
-# 版本: 1.2
-# 作者: ApolloMonasa (或保留为空)
-# 日期: 2023-10-27
+# 版本: 1.5 (优先使用 Gitee 仓库下载配置文件)
+# 作者: ApolloMonasa
+# 日期: 2024-01-26
 # 描述: 此脚本自动化配置 Termux 中的 C/C++/Python 开发环境，
 #       包括 Neovim、COC.nvim、Treesitter 和 UltiSnips。
+#       配置文件 (init.vim 和 pip.conf) 优先通过 Gitee 仓库下载，
+#       提高脚本简洁性和可维护性，并优化国内访问速度。
 # ======================================================================
 
 echo "======================================================================"
@@ -14,6 +16,16 @@ echo " 正在启动 Termux 开发环境配置..."
 echo " 此脚本将安装必要的软件包并配置 Neovim。"
 echo " 请确保您有稳定的互联网连接。"
 echo "======================================================================"
+
+# --- 配置文件的远程 URL (优先使用 Gitee) ---
+# !!! 请确保这些 URL 指向你的 Gitee 仓库中文件的 Raw 内容 !!!
+# Gitee 的 Raw 内容链接通常格式为: https://gitee.com/用户名/仓库名/raw/分支名/文件路径
+INIT_VIM_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/init.vim"
+PIP_CONF_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/main/pip.conf" # 假设 pip.conf 也在此仓库
+
+# Fallback 到 GitHub (如果 Gitee 访问失败)
+INIT_VIM_URL_GITHUB="https://raw.githubusercontent.com/ApolloMonasa/how_to_code_in_termux/main/init.vim"
+PIP_CONF_URL_GITHUB="https://raw.githubusercontent.com/ApolloMonasa/how_to_code_in_termux/main/pip.conf"
 
 # --- 1. 更新 Termux 并安装基础软件包 ---
 echo ""
@@ -48,14 +60,9 @@ fi
 
 echo "Node.js 和 npm 已安装或已存在。"
 
-# 安装其余的基础开发工具
-echo "安装 C/C++/Python 开发所需的基础工具..."
-pkg install -y build-essential clang python python-pip git neovim
-# build-essential for common build tools like make, gcc (already included with clang on Termux)
-# clang for C/C++ compiler
-# python/python-pip for Python development
-# git for cloning repositories
-# neovim as the editor
+# 安装其余的基础开发工具，包含 llvm 提供 clangd
+echo "安装 C/C++/Python 开发所需的基础工具 (包括 llvm 以提供 clangd)..."
+pkg install -y build-essential clang llvm python python-pip git neovim
 
 if [ $? -ne 0 ]; then
     echo "错误: 基础软件包安装失败。退出脚本。"
@@ -66,10 +73,39 @@ echo "基础软件包安装成功。"
 # --- 2. 安装 Python 开发工具 ---
 echo ""
 echo "--- 步骤 2: 安装 Python 开发工具 (pip 包) ---"
-# 在 Termux 中，不应尝试升级 pip，它由 python-pip 包管理，升级可能导致环境损坏。
-# pip install --upgrade pip # <-- 强烈建议删除此行
+
+# --- 2.1 询问是否配置 PyPI 镜像源 ---
+read -p "是否需要配置 PyPI 镜像源（推荐中国大陆用户以加速下载，输入 y/n）? " -n 1 -r
+echo    # (optional) move to a new line
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    echo "正在配置 PyPI 镜像源..."
+    mkdir -p ~/.pip
+
+    echo "尝试从 Gitee 下载 pip.conf..."
+    curl -fLo ~/.pip/pip.conf "$PIP_CONF_URL_GITEE"
+
+    if [ $? -ne 0 ]; then
+        echo "警告: 从 Gitee 下载 pip.conf 失败。尝试从 GitHub 下载..."
+        curl -fLo ~/.pip/pip.conf "$PIP_CONF_URL_GITHUB"
+        if [ $? -ne 0 ]; then
+            echo "错误: 自动配置 PyPI 镜像源失败。请检查网络连接或提供的 URL 是否可访问。"
+            echo "脚本将继续尝试安装，但如果下载遇到问题，可能需要手动配置或重试。"
+        else
+            echo "PyPI 镜像源从 GitHub 配置成功。"
+        fi
+    else
+        echo "PyPI 镜像源从 Gitee 配置成功。"
+    fi
+else
+    echo "跳过 PyPI 镜像源配置。"
+fi
+
+# 移除 pip --upgrade 命令，它在 Termux 中会导致问题
+# pip install --upgrade pip # <--- 此行已被移除
 
 # 安装 Neovim Python host provider 和 LSP 服务器
+echo "正在安装 Python pip 包 (pynvim, python-lsp-server, black, flake8, isort)..."
 pip install pynvim python-lsp-server black flake8 isort
 
 if [ $? -ne 0 ]; then
@@ -93,209 +129,28 @@ if [ ! -f "$PYTHON_TERMUX_PATH" ]; then
     echo "Neovim Python provider 可能会有问题。请确保 'python' 包已正确安装。"
 fi
 
-
-# 将 Neovim 配置内容写入 init.vim 文件
+# 通过 curl 下载 Neovim 配置文件 init.vim (优先从 Gitee 下载)
+echo "正在从远程下载 Neovim 配置文件 init.vim..."
 NVIM_CONFIG_FILE="$HOME/.config/nvim/init.vim"
-cat << EOF > "$NVIM_CONFIG_FILE"
-" ======================================================================
-" Neovim Configuration for Termux (C/C++/Python) - 完整版
-" ======================================================================
 
-" --- Python Provider for Neovim ---
-" 显式指定 Termux 中 Python 3 解释器的路径，确保 UltiSnips 和其他 Python 插件正常工作
-let g:python3_host_prog = '$PYTHON_TERMUX_PATH'
-let g:python_host_prog = '$PYTHON_TERMUX_PATH'
-
-" --- 禁用不需要的 Provider (消除 checkhealth 警告) ---
-" 如果不需要 Ruby 或 Perl 开发，可以禁用这些 provider
-let g:loaded_ruby_provider = 0
-let g:loaded_perl_provider = 0
-" Node.js provider在coc.nvim中使用，这里不应禁用，而是安装npm包
-
-" --- Plugin Manager: vim-plug ---
-call plug#begin('~/.config/nvim/plugged')
-
-" General Enhancements
-Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'} " 语法高亮 (Treesitter)
-Plug 'gruvbox-community/gruvbox' " 主题颜色 (Colorscheme)
-
-" Autocompletion Engine (非常强大，基于 LSP)
-Plug 'neoclide/coc.nvim', {'branch': 'release'}
-
-" Snippet Engine and Snippets (代码模板)
-Plug 'SirVer/ultisnips' " Snippet 引擎
-Plug 'honza/vim-snippets' " 常用代码片段集合
-
-" Indentation & Formatting (缩进和格式化)
-Plug 'Chiel92/vim-autoformat' " 自动格式化插件
-Plug 'jiangmiao/auto-pairs' " 括号、引号自动补全
-
-" File Explorer (可选但非常有用)
-Plug 'preservim/nerdtree' " 文件浏览器
-
-" Git Integration (可选)
-Plug 'tpope/vim-fugitive' " Git 命令封装
-
-call plug#end()
-
-" ======================================================================
-" --- General Settings ---
-" ======================================================================
-set nocompatible " 兼容性设置，必须
-filetype plugin indent on " 启用文件类型检测、插件和智能缩进
-syntax enable " 启用语法高亮
-set encoding=utf-8 " 设置默认编码为 UTF-8
-set tabstop=4 " 一个 Tab 键代表的空格数
-set shiftwidth=4 " 自动缩进的空格数
-set expandtab " Tab 键输入时转换为空格
-set autoindent " 从上一行复制缩进
-set smartindent " 更智能的自动缩进
-set number " 显示行号
-set relativenumber " 显示相对行号
-set cursorline " 高亮当前行
-set ttyfast " 加速终端屏幕更新
-set showmatch " 高亮匹配的括号
-set incsearch " 实时搜索
-set hlsearch " 高亮所有搜索匹配
-set noerrorbells " 关闭错误响铃
-set visualbell " 闪屏代替响铃
-set wrap " 自动换行
-set backspace=indent,eol,start " 使退格键在插入模式下行为更自然
-set completeopt=menuone,noselect " 补全菜单选项
-set signcolumn=yes " 总是显示符号列 (例如用于 linting 错误)
-
-" --- Clipboard Integration (剪贴板集成) ---
-" 仅在 Termux 环境下启用系统剪贴板
-if has('termux')
-    set clipboard=unnamedplus
-endif
-
-" --- Colorscheme ---
-colorscheme gruvbox
-set background=dark " 或 'light'，根据个人喜好
-
-" ======================================================================
-" --- Plugin Specific Configurations ---
-" ======================================================================
-
-" --- Neovim Treesitter (Syntax Highlighting) ---
-lua << EOL
-require('nvim-treesitter.configs').setup {
-  ensure_installed = { "c", "cpp", "python" }, -- 安装 C, C++, Python 的解析器
-  highlight = {
-    enable = true,
-    disable = {},
-  },
-  indent = { enable = true },
-}
-EOL
-
-" --- COC.nvim (Completion Engine) ---
-" Basic COC configuration for C/C++/Python
-" For C/C++: Install `clangd`
-" For Python: Install `pylsp` (Python Language Server)
-" See :help coc-configuration for more details.
-let g:coc_global_extensions = ['coc-clangd', 'coc-pyright', 'coc-json', 'coc-tsserver']
-" coc-tsserver for JavaScript/TypeScript development.
-
-" --- COC.nvim Tab 键智能行为 (补全和代码片段) ---
-" 这个配置尝试智能处理 Tab 键的行为：
-" 1. 补全菜单弹出时，按 Tab 键选择下一个补全项。
-" 2. 如果没有补全菜单，但是 UltiSnips 有可展开的片段，按 Tab 键展开片段。
-" 3. 如果没有补全菜单，也不是片段，且光标前是空白，按 Tab 键插入 Tab/空格。
-" 4. 否则，按 Tab 键尝试触发 CoC 补全。
-function! CocTabBehavior() abort
-  if coc#pum#visible() " 补全菜单可见
-    return coc#pum#next() " 选择下一个补全项
-  endif
-  if exists('*UltiSnips#CanExpandSnippet') && UltiSnips#CanExpandSnippet() " UltiSnips 可展开
-    return "\<Plug>(ultisnips-expand)" " 展开 UltiSnips 片段
-  endif
-  if exists('*UltiSnips#CanJumpNext') && UltiSnips#CanJumpNext() " UltiSnips 可跳转到下一个占位符
-    return "\<Plug>(ultisnips-jump-next)"
-  endif
-  " 如果光标前是空白，插入 Tab，否则触发 CoC 补全
-  if col('.') <= 1 || getline('.')[col('.')-2] =~ '\s'
-    return "\<Tab>"
-  else
-    return coc#refresh()
-  endif
-endfunction
-
-inoremap <silent><expr> <TAB> <SID>CocTabBehavior()
-
-" Shift+Tab 键的智能行为 (补全和代码片段)
-function! CocShiftTabBehavior() abort
-  if coc#pum#visible() " 补全菜单可见
-    return coc#pum#prev() " 选择上一个补全项
-  endif
-  if exists('*UltiSnips#CanJumpPrev') && UltiSnips#CanJumpPrev() " UltiSnips 可跳转到上一个占位符
-    return "\<Plug>(ultisnips-jump-prev)"
-  endif
-  return "\<C-h>" " 否则，插入退格 (通常作为 Shift+Tab 的默认行为)
-endfunction
-
-inoremap <silent><expr> <S-TAB> <SID>CocShiftTabBehavior()
-
-" 使用 <CR> (回车键) 确认补全或跳到片段下一个占位符
-inoremap <silent><expr> <CR> coc#pum#visible() ? coc#pum#confirm() : "\<CR>"
-" 定义快捷键来触发代码格式化（使用 vim-autoformat）
-nnoremap <leader>f :Autoformat<CR>
-vnoremap <leader>f :Autoformat<CR>
-
-" NERDTree 快捷键
-map <leader>n :NERDTreeToggle<CR> " 切换 NERDTree
-" FZF 快捷键（如果安装了 FZF，虽然脚本中没有显式安装，但用户可能需要）
-" nnoremap <leader>f :Files<CR>
-" nnoremap <leader>g :GFiles<CR>
-
-" UltiSnips 配置
-let g:UltiSnipsExpandTrigger="<tab>"
-let g:UltiSnipsJumpForwardTrigger="<tab>"
-let g:UltiSnipsJumpBackwardTrigger="<s-tab>"
-
-" COC.nvim 错误和警告符号
-sign define CocWarningText text=Warn texthl=CocWarningSign
-sign define CocErrorText text=Error texthl=CocErrorSign
-
-" 设置诊断显示方式
-set signcolumn=yes:1
-
-" 定义 leader 键 (例如空格键)
-let mapleader = " "
-
-" 其他常用的 COC 映射 (可以根据需要取消注释或添加)
-" nnoremap <silent> gd <Plug>(coc-definition)
-" nnoremap <silent> gy <Plug>(coc-type-definition)
-" nnoremap <silent> gi <Plug>(coc-implementation)
-" nnoremap <silent> gr <Plug>(coc-references)
-" nnoremap <silent> K :call <SID>show_documentation()<CR>
-
-" function! <SID>show_documentation()
-"   if (index(['vim','help'], &filetype) >= 0)
-"     execute 'h '.expand('<cword>')
-"   elseif (coc#rpc#ready())
-"     call CocActionAsync('doHover')
-"   else
-"     execute '!' . &keywordprg . " " . expand('<cword>')
-"   endif
-" endfunction
-
-" 自动修复
-" nnoremap <silent> <leader>q :call CocAction('fixAll')<CR>
-
-" 重命名
-" nnoremap <leader>rn <Plug>(coc-rename)
-
-EOF
+echo "尝试从 Gitee 下载 init.vim..."
+curl -fLo "$NVIM_CONFIG_FILE" "$INIT_VIM_URL_GITEE"
 
 if [ $? -ne 0 ]; then
-    echo "错误: Neovim 配置文件创建失败。退出脚本。"
-    exit 1
+    echo "警告: 从 Gitee 下载 init.vim 失败。尝试从 GitHub 下载..."
+    curl -fLo "$NVIM_CONFIG_FILE" "$INIT_VIM_URL_GITHUB"
+    if [ $? -ne 0 ]; then
+        echo "错误: Neovim 配置文件下载失败。请检查网络连接或提供的 URL 是否可访问。"
+        echo "由于 init.vim 对 Neovim 配置至关重要，脚本将退出。"
+        exit 1
+    else
+        echo "Neovim 配置文件从 GitHub 下载并创建在 $NVIM_CONFIG_FILE"
+    fi
+else
+    echo "Neovim 配置文件从 Gitee 下载并创建在 $NVIM_CONFIG_FILE"
 fi
-echo "Neovim 配置文件已创建在 $NVIM_CONFIG_FILE"
-echo "正在安装 vim-plug..."
 
+echo "正在安装 vim-plug..."
 # 安装 vim-plug (Neovim 插件管理器)
 curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs \
     https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
