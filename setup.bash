@@ -28,13 +28,13 @@ echo "尝试安装 Node.js 和 npm..."
 # 优先尝试安装 nodejs-lts，它通常包含了 npm
 pkg install -y nodejs-lts
 
-# 检查 nodejs 是否安装成功
-if ! command -v node &> /dev/null
+# 检查 node (Node.js) 和 npm 是否都安装成功
+if ! command -v node &> /dev/null || ! command -v npm &> /dev/null
 then
-    echo "警告: nodejs-lts 未能通过 pkg install 成功安装。尝试安装普通的 nodejs 和 npm..."
+    echo "警告: nodejs-lts 未能通过 pkg install 成功安装或 npm 未找到。尝试安装普通的 nodejs 和 npm..."
     pkg install -y nodejs npm
-    # 再次检查 node 是否安装成功
-    if ! command -v node &> /dev/null
+    # 再次检查 node 和 npm 是否安装成功
+    if ! command -v node &> /dev/null || ! command -v npm &> /dev/null
     then
         echo "错误: Node.js (和 npm) 无法安装。这可能是由于软件包源问题或Termux版本不兼容。"
         echo "请尝试以下操作："
@@ -66,13 +66,15 @@ echo "基础软件包安装成功。"
 # --- 2. 安装 Python 开发工具 ---
 echo ""
 echo "--- 步骤 2: 安装 Python 开发工具 (pip 包) ---"
-pip install --upgrade pip
-pip install pynvim # Neovim Python host provider
-pip install python-lsp-server # Python Language Server for COC.nvim (pylsp)
-pip install black flake8 isort # 常用 Python 格式化/Linter 工具
+# 在 Termux 中，不应尝试升级 pip，它由 python-pip 包管理，升级可能导致环境损坏。
+# pip install --upgrade pip # <-- 强烈建议删除此行
+
+# 安装 Neovim Python host provider 和 LSP 服务器
+pip install pynvim python-lsp-server black flake8 isort
 
 if [ $? -ne 0 ]; then
-    echo "错误: Python pip 包安装失败。退出脚本。"
+    echo "错误: Python pip 包安装失败。请检查网络连接或 Termux Python 环境。"
+    echo "如果问题持续存在，尝试手动运行 'pip install pynvim python-lsp-server black flake8 isort'"
     exit 1
 fi
 echo "Python 开发工具安装成功。"
@@ -84,6 +86,14 @@ echo "--- 步骤 3: 配置 Neovim ---"
 # 创建 Neovim 配置目录
 mkdir -p ~/.config/nvim
 
+# 检查 Python 解释器路径 (可选，但推荐增强健壮性)
+PYTHON_TERMUX_PATH="/data/data/com.termux/files/usr/bin/python"
+if [ ! -f "$PYTHON_TERMUX_PATH" ]; then
+    echo "警告: 无法找到 Python 解释器在 $PYTHON_TERMUX_PATH。"
+    echo "Neovim Python provider 可能会有问题。请确保 'python' 包已正确安装。"
+fi
+
+
 # 将 Neovim 配置内容写入 init.vim 文件
 NVIM_CONFIG_FILE="$HOME/.config/nvim/init.vim"
 cat << EOF > "$NVIM_CONFIG_FILE"
@@ -93,8 +103,8 @@ cat << EOF > "$NVIM_CONFIG_FILE"
 
 " --- Python Provider for Neovim ---
 " 显式指定 Termux 中 Python 3 解释器的路径，确保 UltiSnips 和其他 Python 插件正常工作
-let g:python3_host_prog = '/data/data/com.termux/files/usr/bin/python'
-let g:python_host_prog = '/data/data/com.termux/files/usr/bin/python'
+let g:python3_host_prog = '$PYTHON_TERMUX_PATH'
+let g:python_host_prog = '$PYTHON_TERMUX_PATH'
 
 " --- 禁用不需要的 Provider (消除 checkhealth 警告) ---
 " 如果不需要 Ruby 或 Perl 开发，可以禁用这些 provider
@@ -186,7 +196,7 @@ EOL
 " For Python: Install `pylsp` (Python Language Server)
 " See :help coc-configuration for more details.
 let g:coc_global_extensions = ['coc-clangd', 'coc-pyright', 'coc-json', 'coc-tsserver']
-" For JavaScript/TypeScript  (将注释移到列表定义下方)
+" coc-tsserver for JavaScript/TypeScript development.
 
 " --- COC.nvim Tab 键智能行为 (补全和代码片段) ---
 " 这个配置尝试智能处理 Tab 键的行为：
@@ -296,12 +306,12 @@ if [ $? -ne 0 ]; then
 fi
 echo "vim-plug 安装成功。"
 
-echo "正在安装 Neovim 插件... 这可能需要一些时间。"
+echo "正在安装 Neovim 插件... 这可能需要一些时间，请耐心等待。"
 # 在静默模式下运行 nvim 来安装插件
 nvim --headless +PlugInstall +qall
 
 if [ $? -ne 0 ]; then
-    echo "警告: 部分 Neovim 插件可能未能正确安装。请手动检查。"
+    echo "警告: 部分 Neovim 插件可能未能正确安装。请手动进入 Neovim 并运行 ':PlugInstall' 检查。"
 fi
 echo "Neovim 插件安装已启动。部分插件（如 coc.nvim 和 treesitter）需要进一步设置。"
 
@@ -310,11 +320,11 @@ echo ""
 echo "--- 步骤 4: Neovim 插件安装后的步骤 ---"
 
 # 安装 COC.nvim 扩展
-echo "正在安装 COC.nvim 扩展 (coc-clangd, coc-pyright, etc.)..."
+echo "正在安装 COC.nvim 扩展 (coc-clangd, coc-pyright, etc.)... 这也可能需要一些时间。"
 nvim --headless +":CocInstall coc-clangd coc-pyright coc-json coc-tsserver" +qall
 
 if [ $? -ne 0 ]; then
-    echo "警告: 部分 COC.nvim 扩展可能未能正确安装。请手动检查。"
+    echo "警告: 部分 COC.nvim 扩展可能未能正确安装。请手动进入 Neovim 并运行 ':CocInstall coc-clangd coc-pyright coc-json coc-tsserver' 检查。"
 fi
 echo "COC.nvim 扩展安装已启动。"
 
@@ -323,7 +333,7 @@ echo "正在更新 nvim-treesitter 解析器..."
 nvim --headless +":TSUpdate" +qall
 
 if [ $? -ne 0 ]; then
-    echo "警告: nvim-treesitter 解析器可能未能正确更新。请手动检查。"
+    echo "警告: nvim-treesitter 解析器可能未能正确更新。请手动进入 Neovim 并运行 ':TSUpdate' 检查。"
 fi
 echo "nvim-treesitter 解析器更新已启动。"
 
