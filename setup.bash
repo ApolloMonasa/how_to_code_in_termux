@@ -152,12 +152,27 @@ fi
 
 echo "正在安装 vim-plug..."
 # 安装 vim-plug (Neovim 插件管理器)
-curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs \
-    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+
+# Gitee 镜像源
+VIM_PLUG_URL_GITEE="https://gitee.com/yanglbme/vim-plug/raw/master/plug.vim"
+# GitHub 官方源 (作为备用)
+VIM_PLUG_URL_GITHUB="https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
+
+echo "尝试从 Gitee 下载 vim-plug..."
+curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs "$VIM_PLUG_URL_GITEE"
 
 if [ $? -ne 0 ]; then
-    echo "错误: vim-plug 安装失败。退出脚本。"
-    exit 1
+    echo "警告: 从 Gitee 下载 vim-plug 失败。尝试从 GitHub 下载..."
+    curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs "$VIM_PLUG_URL_GITHUB"
+    if [ $? -ne 0 ]; then
+        echo "错误: vim-plug 安装失败。请检查网络连接或提供的 URL 是否可访问。"
+        echo "退出脚本。"
+        exit 1
+    else
+        echo "vim-plug 从 GitHub 安装成功。"
+    fi
+else
+    echo "vim-plug 从 Gitee 安装成功。"
 fi
 echo "vim-plug 安装成功。"
 
