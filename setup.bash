@@ -199,6 +199,83 @@ fi
 echo "nvim-treesitter 解析器更新已启动。"
 
 
+# --- 5. 配置 Zsh 和 Oh My Zsh (可选美化) ---
+echo ""
+echo "--- 步骤 5: 配置 Zsh 和 Oh My Zsh (可选美化) ---"
+
+read -p "是否需要安装 Zsh 和 Oh My Zsh 进行终端美化（推荐，输入 y/n）? " -n 1 -r
+echo    # (optional) move to a new line
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    echo "正在安装 Zsh..."
+    pkg install -y zsh
+
+    if [ $? -ne 0 ]; then
+        echo "错误: Zsh 安装失败。跳过 Oh My Zsh 配置。"
+    else
+        echo "Zsh 安装成功。正在安装 Oh My Zsh..."
+
+        # 检查是否已安装 Oh My Zsh，避免重复安装
+        if [ -d "$HOME/.oh-my-zsh" ]; then
+            echo "Oh My Zsh 已经安装。跳过安装过程。"
+        else
+            # 安装 Oh My Zsh
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
+            if [ $? -ne 0 ]; then
+                echo "错误: Oh My Zsh 安装失败。请检查网络连接。"
+            else
+                echo "Oh My Zsh 安装成功。正在配置 .zshrc..."
+
+                # 下载并替换 .zshrc
+                OHMYZSH_CONFIG_URL_GITEE="https://gitee.com/xyl6716/how_to_code_in_termux/raw/master/.zshrc" # 假设你将 .zshrc 放在 Gitee 仓库
+                OHMYZSH_CONFIG_URL_GITHUB="https://raw.githubusercontent.com/ApolloMonasa/how_to_code_in_termux/main/.zshrc" # Fallback 到 GitHub
+
+                echo "尝试从 Gitee 下载 .zshrc 配置..."
+                curl -fLo "$HOME/.zshrc" "$OHMYZSH_CONFIG_URL_GITEE"
+
+                if [ $? -ne 0 ]; then
+                    echo "警告: 从 Gitee 下载 .zshrc 失败。尝试从 GitHub 下载..."
+                    curl -fLo "$HOME/.zshrc" "$OHMYZSH_CONFIG_URL_GITHUB"
+                    if [ $? -ne 0 ]; then
+                        echo "错误: .zshrc 配置文件下载失败。请手动配置或检查网络。"
+                        echo "Oh My Zsh 将使用默认配置。"
+                    else
+                        echo ".zshrc 配置从 GitHub 下载成功。"
+                    fi
+                else
+                    echo ".zshrc 配置从 Gitee 下载成功。"
+                fi
+
+                # 安装推荐的插件
+                echo "正在安装 zsh-syntax-highlighting 和 zsh-autosuggestions 插件..."
+                git clone https://gitee.com/Annihilater/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting || \
+                git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+
+                git clone https://gitee.com/Annihilater/zsh-autosuggestions.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions || \
+                git clone https://github.com/zsh-users/zsh-autosuggestions.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
+
+                echo "Oh My Zsh 插件安装已尝试。"
+                echo "请注意：安装插件后，您可能需要手动编辑 ~/.zshrc 文件以启用它们。"
+                echo "此脚本会在下一步为您切换默认 Shell 为 Zsh。"
+
+                # 切换默认 Shell 到 Zsh
+                echo "正在尝试将默认 Shell 更改为 Zsh..."
+                chsh -s zsh
+
+                if [ $? -ne 0 ]; then
+                    echo "警告: 自动切换默认 Shell 失败。您可能需要手动运行 'chsh -s zsh' 并重启 Termux。"
+                else
+                    echo "默认 Shell 已设置为 Zsh。请重启 Termux 应用以生效。"
+                fi
+            fi
+        fi
+    fi
+else
+    echo "跳过 Zsh 和 Oh My Zsh 配置。"
+fi
+
+
 echo ""
 echo "======================================================================"
 echo " Termux 开发环境配置完成!"
